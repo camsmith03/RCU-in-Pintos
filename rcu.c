@@ -43,9 +43,10 @@ atomic_int global_epoch;
 /* Shutdown flag to tell RCU GP thread to exit its loops */
 static atomic_int rcu_shutdown_flag;
 
-// Remove these later (mainly to test if calls are working)
+#ifdef TESTING
 static atomic_int rcu_sync_write_cnt;
 static atomic_int rcu_async_write_cnt;
+#endif 
 
 /* Initializes RCU and the relevant data structures */
 void
@@ -55,14 +56,16 @@ rcu_init (void)
   global_epoch = 1; // Start at 1 to avoid confusion with the initial value for
                     // the CPUs
 
-  rcu_sync_write_cnt = 0;
-  rcu_async_write_cnt = 0;
-
   // Set the shutdown flag to false, used by the GP thread
   rcu_shutdown_flag = 0;
 
   ASSERT (__atomic_always_lock_free (sizeof (atomic_int), &global_epoch));
   ASSERT (__atomic_always_lock_free (sizeof (atomic_int), &rcu_shutdown_flag));
+
+#ifdef TESTING
+  atomic_store (&rcu_sync_write_cnt, 0);
+  atomic_store (&rcu_async_write_cnt, 0);
+#endif 
 
   /* Initializes every list up to NCPU_MAX. Doing so provides even more
    * flexibility as to places RCU can be integrated into the Pintos kernel,
@@ -100,6 +103,7 @@ rcu_shutdown (void)
   atomic_store_explicit (&rcu_shutdown_flag, 1, RELEASE);
 }
 
+#ifdef TESTING
 /* Print stats on system shutdown */
 void
 rcu_print_stats (void)
@@ -109,6 +113,7 @@ rcu_print_stats (void)
       atomic_load (&global_epoch), atomic_load (&rcu_sync_write_cnt),
       atomic_load (&rcu_async_write_cnt));
 }
+#endif 
 
 /* RCU ayncronous updates (non-blocking).
  *
@@ -126,8 +131,9 @@ call_rcu (const void *data, rcu_callback_t callback_func)
   struct cpu *cpu;
   new_df = malloc (sizeof (struct rcu_deferred_free));
 
-  // Remove this later
+#ifndef TESTING
   atomic_inci (&rcu_async_write_cnt);
+#endif 
 
   intr_disable_push ();
 
@@ -165,8 +171,9 @@ synchronize_rcu (void)
   intr_disable ();
   t = thread_current ();
 
-  // Remove this later
+#ifdef TESTING
   atomic_inci (&rcu_sync_write_cnt);
+#endif 
 
   /* Insert the thread into the blocked writer queue for its CPU */
   list_push_front (&t->cpu->rcu_next_gp->blocked_writers, &t->elem);
