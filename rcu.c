@@ -46,7 +46,7 @@ static atomic_int rcu_shutdown_flag;
 #ifdef TESTING
 static atomic_int rcu_sync_write_cnt;
 static atomic_int rcu_async_write_cnt;
-#endif 
+#endif
 
 /* Initializes RCU and the relevant data structures */
 void
@@ -65,13 +65,13 @@ rcu_init (void)
 #ifdef TESTING
   atomic_store (&rcu_sync_write_cnt, 0);
   atomic_store (&rcu_async_write_cnt, 0);
-#endif 
+#endif
 
-  /* Initializes every list up to NCPU_MAX. Doing so provides even more
-   * flexibility as to places RCU can be integrated into the Pintos kernel,
-   * as the value of ncpu isn't known until the call to acpi_init(..). Since
-   * the list initializations are very low on overhead, it won't impact
-   * performace, but future-proofs our ability to make use of RCU */
+  // Initializes every list up to NCPU_MAX. Doing so provides even more
+  // flexibility as to places RCU can be integrated into the Pintos kernel,
+  // as the value of ncpu isn't known until the call to acpi_init(..). Since
+  // the list initializations are very low on overhead, it won't impact
+  // performace, but future-proofs our ability to make use of RCU
   for (i = 0; i < NCPU_MAX; i++)
     {
       // These lists will be local to each CPU once ACPI initializes cpus arr
@@ -83,11 +83,11 @@ rcu_init (void)
 }
 
 /* Starts the RCU grace period thread to allow for RCU data reclaimation to
-   begin. This is not vital to the immediate usage of RCU, however any deferred
-   frees or blocked writers will not be addressed until the GP thread has
-   started.
-
-   In between that duration, async writes should be used if they do occur.
+ * begin. This is not vital to the immediate usage of RCU, however any deferred
+ * frees or blocked writers will not be addressed until the GP thread has
+ * started.
+ *
+ * In between that duration, async writes should be used if they do occur.
  */
 void
 rcu_spawn_gp_thread (void)
@@ -113,7 +113,7 @@ rcu_print_stats (void)
       atomic_load (&global_epoch), atomic_load (&rcu_sync_write_cnt),
       atomic_load (&rcu_async_write_cnt));
 }
-#endif 
+#endif
 
 /* RCU ayncronous updates (non-blocking).
  *
@@ -133,7 +133,7 @@ call_rcu (const void *data, rcu_callback_t callback_func)
 
 #ifndef TESTING
   atomic_inci (&rcu_async_write_cnt);
-#endif 
+#endif
 
   intr_disable_push ();
 
@@ -173,9 +173,9 @@ synchronize_rcu (void)
 
 #ifdef TESTING
   atomic_inci (&rcu_sync_write_cnt);
-#endif 
+#endif
 
-  /* Insert the thread into the blocked writer queue for its CPU */
+  // Insert the thread into the blocked writer queue for its CPU
   list_push_front (&t->cpu->rcu_next_gp->blocked_writers, &t->elem);
 
   thread_block (NULL); // context switch to different thread
@@ -202,34 +202,34 @@ rcu_quiescent_state (void)
 
   cpu = get_cpu ();
 
-  /* Load the global epoch using relaxed memory ordering into a global
-   * variable. It can change after this call, but due to the nature of RCU,
-   * this is completely fine */
+  // Load the global epoch using relaxed memory ordering into a global
+  // variable. It can change after this call, but due to the nature of RCU,
+  // this is completely fine
   curr_epoch = (uint32_t)atomic_load_explicit (&global_epoch, RELAXED);
 
-  /* See if the CPU has already seen this GP */
+  // See if the CPU has already observed this GP
   if (cpu->rcu_last_epoch == curr_epoch)
     {
       intr_enable_pop ();
       return;
     }
 
-  /* The epoch saved for the CPU shouldn't be larger than the current.
-   * Some other code must've changed it's epoch so panic the kernel. */
+  // The epoch saved for the CPU shouldn't be larger than the current. Some
+  // other code must've changed it's epoch so panic the kernel.
   if (cpu->rcu_last_epoch > curr_epoch)
     PANIC ("CPU %u has an invalid epoch", cpu->id);
 
-  /* Under normal circumstances, the current epoch should only be one greater
-   * than the cpu's saved epoch. We allow for any epochs beyond that one, in
-   * the event some strange bug ocurs that causes the CPU to miss it. Behavior
-   * wouldn't change, but it is not an expected outcome */
+  // Under normal circumstances, the current epoch should only be one greater
+  // than the cpu's saved epoch. We allow for any epochs beyond that one, in
+  // the event some strange bug ocurs that causes the CPU to miss it. Behavior
+  // wouldn't change, but it is not an expected outcome
 
-  /* Make sure that the CPUs QS flag isn't set to true, otherwise there was a
-   * bug with atomic memory ordering */
+  // Make sure that the CPUs QS flag isn't set to true, otherwise there was a
+  // bug with atomic memory ordering
   if (atomic_load_explicit (&cpu->rcu_qs_reached, ACQUIRE))
     PANIC ("An atomic violation occured with CPU %d", cpu->id);
 
-  /* Notify the GP thread that we've hit a QS */
+  // Notify the GP thread that we've hit a QS
   atomic_store_explicit (&cpu->rcu_qs_reached, true, RELEASE);
 
   struct list_elem *e;
@@ -237,18 +237,18 @@ rcu_quiescent_state (void)
   struct rcu_cpu_lists *curr;
   struct thread *writer;
 
-  /* Save a pointer to the CPU's current GP data struct object for later
-   * swapping */
+  // Save a pointer to the CPU's current GP data struct object for later
+  // swapping
   curr = cpu->rcu_curr_gp;
 
-  /* Swap the next and curr pointers to have new updates added to the
-   * emptied lists. If the ready queues are implemented using RCU, this swap
-   * coming before the calls to thread_unblock are necessary */
+  // Swap the next and curr pointers to have new updates added to the
+  // emptied lists. If the ready queues are implemented using RCU, this swap
+  // coming before the calls to thread_unblock are necessary
   cpu->rcu_curr_gp = cpu->rcu_next_gp;
   cpu->rcu_next_gp = curr;
 
-  /* Call the callback functions on any RCU-protected data from the deferred
-   * free list */
+  // Call the callback functions on any RCU-protected data from the deferred
+  // free list
   while (!list_empty (&curr->deferred_free_list))
     {
       e = list_pop_front (&curr->deferred_free_list);
@@ -257,8 +257,8 @@ rcu_quiescent_state (void)
       free (df); // free the allocated deferred free struct
     }
 
-  /* Loop through the synchronous writer threads, moving them back into the
-   * ready queue */
+  // Loop through the synchronous writer threads, moving them back into the
+  // ready queue
   while (!list_empty (&curr->blocked_writers))
     {
       e = list_pop_front (&curr->blocked_writers);
@@ -267,7 +267,7 @@ rcu_quiescent_state (void)
       thread_unblock (writer);
     }
 
-  /* Update the local epoch */
+  // Update the local epoch
   cpu->rcu_last_epoch = curr_epoch;
   intr_enable_pop ();
 }
@@ -306,26 +306,26 @@ rcu_grace_period_thread (void *aux UNUSED)
             thread_kill_gp_thread ();
         }
 
-      /* Once a GP has elapsed, flip each of the CPUs flags */
+      // Once a GP has elapsed, flip each of the CPUs flags
       for (i = 0; i < ncpu; i++)
         atomic_store_explicit (&cpus[i].rcu_qs_reached, false, RELEASE);
 
-      /* This is a blantant atomic violation, but the GP thread is the
-       * only one who performs updates on the global epoch. To avoid the
-       * cost of a sequentially consistent RMW atomic primitive (based on
-       * limitations in x86), we can opt for relaxed ordering by breaking
-       * the atomicity and performing the R + M seperate from the W. This
-       * will minimize contention to save several cycles */
+      // This is a blantant atomic violation, but the GP thread is the only one
+      // who performs updates on the global epoch. To avoid the cost of a
+      // sequentially consistent RMW atomic primitive (based on limitations in
+      // x86), we can opt for relaxed ordering by breaking the atomicity and
+      // performing the R + M seperate from the W. This will minimize
+      // contention to save several cycles
       next_epoch = atomic_load_explicit (&global_epoch, RELAXED) + 1;
 
-      /* If we use RELAXED ordering, why doesn't the compiler reorder the above
-       * below the update to the global epoch?
-       *   - The compiler won't reorder the dependency (next_epoch) below the
-       *     dependent (atomic_store). If we didn't save the loaded global
-       *     epoch into a local variable, that guarantee wouldn't exist */
+      // If we use RELAXED ordering, why doesn't the compiler reorder the above
+      // below the update to the global epoch?
+      //   > The compiler won't reorder the dependency (next_epoch) below the
+      //     dependent (atomic_store). If we didn't save the loaded global
+      //     epoch into a local variable, that guarantee wouldn't exist
       atomic_store_explicit (&global_epoch, next_epoch, RELAXED);
 
-      /* See if the shutdown flag was set telling the daemon to turn off */
+      // See if the shutdown flag was set telling the daemon to turn off
       if (atomic_load_explicit (&rcu_shutdown_flag, ACQUIRE) == 1)
         thread_kill_gp_thread ();
     }

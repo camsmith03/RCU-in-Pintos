@@ -52,9 +52,9 @@ typedef void (*rcu_callback_t)(const void *data, void *aux);
 
 /* Each CPU will have two GP data structure pointers.
  *
- * These are dynamically allocated, containing the current list of deferred
- * frees with callback functions (async writes) and blocked writer threads
- * (sync writes).
+ * These are all stack allocated, containing the current list of deferred frees
+ * with callback functions (async writes) and blocked writer threads (sync
+ * writes).
  *
  * The two seperate GP structure pointers are:
  *
@@ -88,16 +88,15 @@ void call_rcu(const void *data, rcu_callback_t callback_func);
 void synchronize_rcu(void);
 void rcu_quiescent_state(void);
 
-/* Each loop iteration requires the end check to be protected by a call to 
+/* Each loop iteration requires the end check to be protected by a call to
  * rcu_dereference. It doesn't hurt to call it on the elem->next field, however
  * we are guaranteed enough protection here assuming this is used properly */
 #define list_for_each_rcu(LIST, ELEM)                                          \
   for (ELEM = list_begin(LIST); rcu_dereference(ELEM) != list_end(LIST);       \
        ELEM = ELEM->next)
 
-
 #ifdef TESTING
 void rcu_print_stats(void);
-#endif 
+#endif
 
 #endif /* lib/kernel/rcu.h */
