@@ -376,11 +376,11 @@ spawn_script (int test_type, int concurrency_type, int access_pattern, int smp)
   int fd;
   pid_t pid1, pid2;
 
-  fd = open ("../selftest/sim_params.h", O_RDWR | O_TRUNC | O_CREAT, 0666);
+  fd = open ("../tests/sim_params.h", O_RDWR | O_TRUNC | O_CREAT, 0666);
 
   if (fd == -1)
     {
-      fprintf (stderr, "File open error (../selftest/sim_params.h)\n");
+      fprintf (stderr, "File open error (../tests/sim_params.h)\n");
       exit (1);
     }
 
