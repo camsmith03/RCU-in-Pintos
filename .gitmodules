@@ -1,0 +1,3 @@
+[submodule "utils/qemu-pinning"]
+	path = utils/qemu-pinning
+	url = https://github.com/64kramsystem/qemu-pinning.git
